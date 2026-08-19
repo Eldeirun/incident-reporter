@@ -4,6 +4,7 @@ import {
   PrimaryGeneratedColumn,
   ManyToOne,
   CreateDateColumn,
+  JoinColumn,
 } from 'typeorm';
 
 import { User } from '../users/user.entity';
@@ -37,7 +38,8 @@ export class Incident {
   @Column({ default: 1 })
   reportCount!: number;
 
-  @ManyToOne(() => User, { eager: true })
+  @ManyToOne(() => User)
+  @JoinColumn()
   reportedBy!: User;
 
   @CreateDateColumn()

@@ -6,6 +6,7 @@ import LoginScreen from "../src/pages/LoginScreen";
 import RegisterScreen from "../src/pages/RegisterScreen";
 import { Text, View } from "react-native";
 import MapScreen from "../src/pages/MapScreen";
+import { IncidentsProvider } from "../src/context/IncidentsContext";
 
 const Stack = createStackNavigator();
 
@@ -29,7 +30,9 @@ function AppNavigator() {
 export default function Index() {
   return (
     <AuthProvider>
-      <AppNavigator />
+      <IncidentsProvider>
+        <AppNavigator />
+      </IncidentsProvider>
     </AuthProvider>
   );
 }

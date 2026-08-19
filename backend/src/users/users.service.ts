@@ -11,9 +11,21 @@ export class UsersService {
   ) {}
 
   async findOne(username: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { username } });
+    return this.usersRepository.findOne({
+      where: { username },
+      select: {
+        id: true,
+        username: true,
+        profile_image: true,
+      },
+    });
   }
 
+  async findOneWithPassword(username: string): Promise<User | null> {
+    return this.usersRepository.findOne({
+      where: { username },
+    });
+  }
   async create(username: string, hashedPassword: string): Promise<User> {
     const user = this.usersRepository.create({
       username,

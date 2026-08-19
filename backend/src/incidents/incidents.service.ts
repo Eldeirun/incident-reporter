@@ -13,7 +13,16 @@ export class IncidentsService {
   ) {}
 
   async findAll(): Promise<Incident[]> {
-    return this.incidentsRepository.find();
+    return this.incidentsRepository.find({
+      relations: { reportedBy: true },
+      select: {
+        reportedBy: {
+          id: true,
+          username: true,
+          profile_image: true,
+        },
+      },
+    });
   }
 
   async create(data: Partial<Incident>, user: User): Promise<Incident> {
