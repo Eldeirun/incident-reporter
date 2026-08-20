@@ -30,4 +30,11 @@ export class IncidentsGateway
   broadcastRemoveIncident(incidentId: number) {
     this.server.emit('removeIncident', incidentId);
   }
+
+  broadcastResolveVote(incidentId: number, resolveCount: number) {
+    this.server.emit('resolveVote', { incidentId, resolveCount });
+  }
+  broadcastReportCount(incidentId: number, reportCount: number) {
+    this.server.emit('reportCount', { incidentId, reportCount });
+  }
 }

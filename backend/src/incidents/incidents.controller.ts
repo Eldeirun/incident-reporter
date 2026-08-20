@@ -11,7 +11,6 @@ import {
 import { IncidentsService } from './incidents.service';
 import { IncidentsGateway } from './incidents.gateway';
 import { JwtAuthGuard } from '../auth/jwt.guard';
-import { request } from 'http';
 
 @Controller('incidents')
 export class IncidentsController {
@@ -29,9 +28,11 @@ export class IncidentsController {
   @Post()
   @UseGuards(JwtAuthGuard)
   async create(@Body() body: any, @Request() req: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const incident = await this.incidentsService.create(body, req.user);
+    const fullIncident = await this.incidentsService.findOne(incident.id);
     this.incidentsGateway.broadcastNewIncident(incident);
-    return incident;
+    return fullIncident;
   }
 
   @Delete(':id')
@@ -45,6 +46,21 @@ export class IncidentsController {
   @Post(':id/report')
   @UseGuards(JwtAuthGuard)
   async incrementReport(@Param('id') id: number) {
-    return this.incidentsService.incrementReportCount(id);
+    const incident = await this.incidentsService.incrementReportCount(id);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    this.incidentsGateway.broadcastReportCount(id, incident.reportCount);
+    return incident;
+  }
+
+  @Post(':id/resolve')
+  @UseGuards(JwtAuthGuard)
+  async resolve(@Param('id') id: number) {
+    const result = await this.incidentsService.resolve(id);
+    if (result.removed) {
+      this.incidentsGateway.broadcastRemoveIncident(id);
+    } else {
+      this.incidentsGateway.broadcastResolveVote(id, result.resolveCount);
+    }
+    return result;
   }
 }

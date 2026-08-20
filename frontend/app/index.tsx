@@ -1,12 +1,12 @@
 import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { AuthProvider, useAuth } from "../src/context/AuthContext";
 import LoginScreen from "../src/pages/LoginScreen";
 import RegisterScreen from "../src/pages/RegisterScreen";
-import { Text, View } from "react-native";
 import MapScreen from "../src/pages/MapScreen";
 import { IncidentsProvider } from "../src/context/IncidentsContext";
+import SettingsScreen from "../src/pages/SettingsScreen";
+import { SettingsProvider } from "../src/context/SettingsContext";
 
 const Stack = createStackNavigator();
 
@@ -21,7 +21,10 @@ function AppNavigator() {
           <Stack.Screen name="Register" component={RegisterScreen} />
         </>
       ) : (
-        <Stack.Screen name="Map" component={MapScreen} />
+        <>
+          <Stack.Screen name="Map" component={MapScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
+        </>
       )}
     </Stack.Navigator>
   );
@@ -30,9 +33,11 @@ function AppNavigator() {
 export default function Index() {
   return (
     <AuthProvider>
-      <IncidentsProvider>
-        <AppNavigator />
-      </IncidentsProvider>
+      <SettingsProvider>
+        <IncidentsProvider>
+          <AppNavigator />
+        </IncidentsProvider>
+      </SettingsProvider>
     </AuthProvider>
   );
 }

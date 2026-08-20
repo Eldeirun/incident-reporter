@@ -32,11 +32,14 @@ export class Incident {
   @Column({ nullable: true })
   image!: string; //fs, bucket mass storage
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   address!: string;
 
   @Column({ default: 1 })
   reportCount!: number;
+
+  @Column({ default: 0 })
+  resolveCount!: number;
 
   @ManyToOne(() => User)
   @JoinColumn()

@@ -1,5 +1,9 @@
 import React, { createContext, useState, useContext } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { stopBackgroundLocation } from "../services/backgroundLocation";
 import { setAuthToken } from "../services/api";
+
+const AUTH_TOKEN_KEY = "incident-reporter.auth-token";
 
 interface AuthContextType {
   token: string | null;
@@ -18,11 +22,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setToken(token);
     setUser(user);
     setAuthToken(token);
+    void AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
   };
 
   const logoutUser = () => {
     setToken(null);
     setUser(null);
+    void AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+    void stopBackgroundLocation();
   };
 
   return (
