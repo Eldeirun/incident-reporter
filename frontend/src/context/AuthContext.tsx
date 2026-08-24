@@ -28,6 +28,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logoutUser = () => {
     setToken(null);
     setUser(null);
+    setAuthToken(null);
     void AsyncStorage.removeItem(AUTH_TOKEN_KEY);
     void stopBackgroundLocation();
   };

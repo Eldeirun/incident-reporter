@@ -7,6 +7,8 @@ import {
   Modal,
   StyleSheet,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useSettings } from "../context/SettingsContext";
 
@@ -58,94 +60,111 @@ export default function IncidentFormModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.overlay}>
-        <View style={[styles.container, darkMode && styles.containerDark]}>
-          <Text style={[styles.title, darkMode && styles.titleDark]}>
-            Report Incident
-          </Text>
-          <Text style={[styles.coords, darkMode && styles.coordsDark]}>
-            📍 {latitude.toFixed(4)}, {longitude.toFixed(4)}
-          </Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.overlay}
+      >
+        <ScrollView
+          contentContainerStyle={styles.sheetContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={[styles.container, darkMode && styles.containerDark]}>
+            <Text style={[styles.title, darkMode && styles.titleDark]}>
+              Report Incident
+            </Text>
+            <Text style={[styles.coords, darkMode && styles.coordsDark]}>
+              📍 {latitude.toFixed(4)}, {longitude.toFixed(4)}
+            </Text>
 
-          <Text style={[styles.label, darkMode && styles.labelDark]}>Type</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.optionRow}
-          >
-            {INCIDENT_TYPES.map((t) => (
-              <TouchableOpacity
-                key={t}
-                style={[
-                  styles.option,
-                  darkMode && styles.optionDark,
-                  type === t && styles.optionSelected,
-                ]}
-                onPress={() => setType(t)}
-              >
-                <Text
-                  style={[
-                    styles.optionText,
-                    darkMode && styles.optionTextDark,
-                    type === t && styles.optionTextSelected,
-                  ]}
-                >
-                  {t}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <Text style={[styles.label, darkMode && styles.labelDark]}>
-            Severity
-          </Text>
-          <View style={styles.optionRow}>
-            {SEVERITY_LEVELS.map((s) => (
-              <TouchableOpacity
-                key={s}
-                style={[
-                  styles.option,
-                  darkMode && styles.optionDark,
-                  severity === s && styles.optionSelected,
-                ]}
-                onPress={() => setSeverity(s)}
-              >
-                <Text
-                  style={[
-                    styles.optionText,
-                    darkMode && styles.optionTextDark,
-                    severity === s && styles.optionTextSelected,
-                  ]}
-                >
-                  {s}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text style={[styles.label, darkMode && styles.labelDark]}>
-            Description (optional)
-          </Text>
-          <TextInput
-            style={[styles.input, darkMode && styles.inputDark]}
-            placeholder="What happened?"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={3}
-          />
-          <View style={styles.buttons}>
-            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.submitButton}
-              onPress={handleSubmit}
+            <Text style={[styles.label, darkMode && styles.labelDark]}>
+              Type
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.optionRow}
+              keyboardShouldPersistTaps="handled"
             >
-              <Text style={styles.submitText}>Report</Text>
-            </TouchableOpacity>
+              {INCIDENT_TYPES.map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[
+                    styles.option,
+                    darkMode && styles.optionDark,
+                    type === t && styles.optionSelected,
+                  ]}
+                  onPress={() => setType(t)}
+                >
+                  <Text
+                    style={[
+                      styles.optionText,
+                      darkMode && styles.optionTextDark,
+                      type === t && styles.optionTextSelected,
+                    ]}
+                  >
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <Text style={[styles.label, darkMode && styles.labelDark]}>
+              Severity
+            </Text>
+            <View style={styles.optionRow}>
+              {SEVERITY_LEVELS.map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  style={[
+                    styles.option,
+                    darkMode && styles.optionDark,
+                    severity === s && styles.optionSelected,
+                  ]}
+                  onPress={() => setSeverity(s)}
+                >
+                  <Text
+                    style={[
+                      styles.optionText,
+                      darkMode && styles.optionTextDark,
+                      severity === s && styles.optionTextSelected,
+                    ]}
+                  >
+                    {s}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[styles.label, darkMode && styles.labelDark]}>
+              Description (optional)
+            </Text>
+            <TextInput
+              style={[styles.input, darkMode && styles.inputDark]}
+              placeholder="What happened?"
+              placeholderTextColor={
+                darkMode ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.3)"
+              }
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              numberOfLines={3}
+            />
+
+            <View style={styles.buttons}>
+              <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.submitButton}
+                onPress={handleSubmit}
+              >
+                <Text style={styles.submitText}>Report</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -162,6 +181,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     padding: 24,
   },
+  sheetContent: { flexGrow: 1, justifyContent: "flex-end" },
   containerDark: { backgroundColor: "#1C3230" },
   title: {
     color: palette.ink,

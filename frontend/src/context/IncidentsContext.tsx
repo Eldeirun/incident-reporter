@@ -31,6 +31,8 @@ export interface Incident {
   address: string | null;
   reportCount: number;
   resolveCount: number;
+  userHasReported: boolean;
+  userHasResolved: boolean;
   reportedBy: { id: number; username: string; profile_image: string | null };
   createdAt: string;
 }
@@ -39,7 +41,10 @@ interface IncidentsContextType {
   incidents: Incident[];
   isLoading: boolean;
   removeIncident: (id: number) => void;
-  resolveIncident: (id: number) => void;
+  reportIncident: (id: number) => Promise<Incident>;
+  resolveIncident: (
+    id: number,
+  ) => Promise<{ removed: boolean; resolveCount: number }>;
 }
 
 const IncidentsContext = createContext<IncidentsContextType>(
@@ -113,7 +118,10 @@ export const IncidentsProvider = ({
     const socket = connectSocket();
 
     socket.on("newIncident", (incident: Incident) => {
-      setIncidents((prev) => [...prev, incident]);
+      setIncidents((prev) => [
+        ...prev,
+        { ...incident, userHasReported: false, userHasResolved: false },
+      ]);
 
       const loc = userLocation.current;
       if (loc) {
@@ -193,17 +201,52 @@ export const IncidentsProvider = ({
     }
   };
 
+  const reportIncident = async (id: number) => {
+    const response = await api.post(`/incidents/${id}/report`);
+    setIncidents((prev) =>
+      prev.map((incident) =>
+        incident.id === id
+          ? { ...incident, ...response.data, userHasReported: true }
+          : incident,
+      ),
+    );
+    return response.data as Incident;
+  };
+
   const resolveIncident = async (id: number) => {
     try {
-      await api.post(`/incidents/${id}/resolve`);
+      const response = await api.post(`/incidents/${id}/resolve`);
+      if (response.data.removed) {
+        setIncidents((prev) => prev.filter((incident) => incident.id !== id));
+      } else {
+        setIncidents((prev) =>
+          prev.map((incident) =>
+            incident.id === id
+              ? {
+                  ...incident,
+                  resolveCount: response.data.resolveCount,
+                  userHasResolved: true,
+                }
+              : incident,
+          ),
+        );
+      }
+      return response.data as { removed: boolean; resolveCount: number };
     } catch (err) {
       console.error("Failed to resolve incident", err);
+      throw err;
     }
   };
 
   return (
     <IncidentsContext.Provider
-      value={{ incidents, isLoading, removeIncident, resolveIncident }}
+      value={{
+        incidents,
+        isLoading,
+        removeIncident,
+        reportIncident,
+        resolveIncident,
+      }}
     >
       {children}
     </IncidentsContext.Provider>

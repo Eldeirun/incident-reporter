@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as Location from "expo-location";
 import {
   View,
@@ -9,7 +9,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import MapView, { Marker, UrlTile, MapPressEvent } from "react-native-maps";
+import MapView, { Marker, MapPressEvent } from "react-native-maps";
 import { useNavigation } from "@react-navigation/native";
 import IncidentFormModal from "../components/IncidentFormModal";
 import api from "../services/api";
@@ -43,11 +43,15 @@ const darkPalette = {
   line: "#31504C",
   teal: "#67C1B5",
   tealSoft: "#244844",
+  coral: "#F28B7D",
   coralSoft: "#4B2B29",
+  amber: "#E2B75B",
+  severe: "#B99ABC",
 };
 
 export default function MapScreen() {
   const navigation = useNavigation<any>();
+  const mapRef = useRef<MapView | null>(null);
   const [location, setLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -58,7 +62,8 @@ export default function MapScreen() {
   });
   const [modalVisible, setModalVisible] = useState(false);
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
-  const { incidents, isLoading, resolveIncident } = useIncidents();
+  const { incidents, isLoading, reportIncident, resolveIncident } =
+    useIncidents();
   const { darkMode } = useSettings();
   const theme = darkMode ? darkPalette : palette;
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(
@@ -66,25 +71,89 @@ export default function MapScreen() {
   );
 
   useEffect(() => {
-    (async () => {
+    let subscription: Location.LocationSubscription | null = null;
+    let isMounted = true;
+
+    const startLocationTracking = async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") return;
+
       const loc = await Location.getCurrentPositionAsync({});
-      setLocation({
+      const initialLocation = {
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
-      });
-      setSelectedCoords({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      });
-    })();
+      };
+      if (!isMounted) return;
+
+      setLocation(initialLocation);
+      setSelectedCoords(initialLocation);
+
+      subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.LocationAccuracy.High,
+          timeInterval: 5000,
+          distanceInterval: 10,
+        },
+        (nextLocation) => {
+          const nextCoordinates = {
+            latitude: nextLocation.coords.latitude,
+            longitude: nextLocation.coords.longitude,
+          };
+          setLocation(nextCoordinates);
+          mapRef.current?.animateToRegion(
+            {
+              ...nextCoordinates,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            },
+            500,
+          );
+        },
+      );
+    };
+
+    void startLocationTracking().catch((err) =>
+      console.error("Failed to track user location", err),
+    );
+
+    return () => {
+      isMounted = false;
+      subscription?.remove();
+    };
   }, []);
 
   const handleMapPress = (e: MapPressEvent) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     setSelectedCoords({ latitude, longitude });
     setModalVisible(true);
+  };
+
+  const handleReportButtonPress = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Location required",
+          "Allow location access to report an incident at your current location.",
+        );
+        return;
+      }
+
+      const current = await Location.getCurrentPositionAsync({});
+      const currentCoords = {
+        latitude: current.coords.latitude,
+        longitude: current.coords.longitude,
+      };
+      setLocation(currentCoords);
+      setSelectedCoords(currentCoords);
+      setModalVisible(true);
+    } catch (err) {
+      console.error("Failed to get current location", err);
+      Alert.alert(
+        "Location unavailable",
+        "Your current location could not be determined. Try again in a moment.",
+      );
+    }
   };
 
   const handleSubmit = async (data: any) => {
@@ -103,10 +172,10 @@ export default function MapScreen() {
     );
 
     try {
-      const response = await api.post(`/incidents/${id}/report`);
+      const response = await reportIncident(id);
       setSelectedIncident((current) =>
         current?.id === id
-          ? { ...current, reportCount: response.data.reportCount }
+          ? { ...current, ...response, userHasReported: true }
           : current,
       );
     } catch (err) {
@@ -122,13 +191,13 @@ export default function MapScreen() {
   const getMarkerColor = (severity: string) => {
     switch (severity) {
       case "High":
-        return palette.coral;
+        return theme.coral;
       case "Severe":
-        return palette.severe;
+        return theme.severe;
       case "Medium":
-        return palette.amber;
+        return theme.amber;
       default:
-        return palette.teal;
+        return theme.teal;
     }
   };
 
@@ -207,8 +276,9 @@ export default function MapScreen() {
       {!isLoading && viewMode === "map" && location && (
         <View style={styles.mapContainer}>
           <MapView
+            ref={mapRef}
             style={styles.map}
-            mapType="none"
+            mapType="standard"
             initialRegion={{
               latitude: location.latitude,
               longitude: location.longitude,
@@ -218,27 +288,32 @@ export default function MapScreen() {
             onPress={handleMapPress}
             showsUserLocation
           >
-            <UrlTile
-              urlTemplate="https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}.png"
-              maximumZ={19}
-              tileSize={256}
-            />
             {incidents.map((incident) => (
               <Marker
-                key={incident.id}
+                key={`${incident.id}-${darkMode ? "dark" : "light"}`}
                 coordinate={{
                   latitude: Number(incident.lat),
                   longitude: Number(incident.lon),
                 }}
                 onPress={() => setSelectedIncident(incident)}
               >
-                <View
-                  style={[
-                    styles.marker,
-                    { backgroundColor: getMarkerColor(incident.severity) },
-                  ]}
-                >
-                  <View style={styles.markerCore} />
+                <View style={styles.markerHitbox}>
+                  <View
+                    style={[
+                      styles.marker,
+                      {
+                        backgroundColor: getMarkerColor(incident.severity),
+                        borderColor: theme.surface,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.markerCore,
+                        { backgroundColor: theme.surface },
+                      ]}
+                    />
+                  </View>
                 </View>
               </Marker>
             ))}
@@ -299,22 +374,31 @@ export default function MapScreen() {
               </Text>
               <View style={styles.cardActions}>
                 <TouchableOpacity
-                  style={styles.yeahButton}
+                  style={[
+                    styles.yeahButton,
+                    selectedIncident.userHasReported && styles.disabledButton,
+                  ]}
                   onPress={() => handleReport(selectedIncident.id)}
+                  disabled={selectedIncident.userHasReported}
                 >
                   <Text style={styles.yeahText}>
-                    👍 Yeah ({selectedIncident.reportCount})
+                    {selectedIncident.userHasReported
+                      ? "👍 Said yeah"
+                      : `👍 Yeah (${selectedIncident.reportCount})`}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.resolveButton}
+                  style={[
+                    styles.resolveButton,
+                    selectedIncident.userHasResolved && styles.disabledButton,
+                  ]}
                   onPress={() =>
                     Alert.alert("Mark Resolved", "Is this incident resolved?", [
                       { text: "Cancel", style: "cancel" },
                       {
                         text: "Resolved",
-                        onPress: () => {
-                          resolveIncident(selectedIncident.id);
+                        onPress: async () => {
+                          await resolveIncident(selectedIncident.id);
                           setSelectedIncident(null);
                         },
                       },
@@ -330,7 +414,7 @@ export default function MapScreen() {
           )}
           <TouchableOpacity
             style={styles.reportButton}
-            onPress={() => setModalVisible(true)}
+            onPress={handleReportButtonPress}
           >
             <Text style={styles.reportButtonText}>+ Report Incident</Text>
           </TouchableOpacity>
@@ -378,15 +462,24 @@ export default function MapScreen() {
                 </Text>
                 <View style={styles.cardActions}>
                   <TouchableOpacity
-                    style={styles.yeahButton}
-                    onPress={() => api.post(`/incidents/${item.id}/report`)}
+                    style={[
+                      styles.yeahButton,
+                      item.userHasReported && styles.disabledButton,
+                    ]}
+                    onPress={() => void reportIncident(item.id)}
+                    disabled={item.userHasReported}
                   >
                     <Text style={styles.yeahText}>
-                      👍 Yeah ({item.reportCount})
+                      {item.userHasReported
+                        ? "👍 Said yeah"
+                        : `👍 Yeah (${item.reportCount})`}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.resolveButton}
+                    style={[
+                      styles.resolveButton,
+                      item.userHasResolved && styles.disabledButton,
+                    ]}
                     onPress={() =>
                       Alert.alert(
                         "Mark Resolved",
@@ -395,7 +488,7 @@ export default function MapScreen() {
                           { text: "Cancel", style: "cancel" },
                           {
                             text: "Resolved",
-                            onPress: () => resolveIncident(item.id),
+                            onPress: () => void resolveIncident(item.id),
                           },
                         ],
                       )
@@ -416,7 +509,7 @@ export default function MapScreen() {
           />
           <TouchableOpacity
             style={styles.reportButton}
-            onPress={() => setModalVisible(true)}
+            onPress={handleReportButtonPress}
           >
             <Text style={styles.reportButtonText}>+ Report Incident</Text>
           </TouchableOpacity>
@@ -538,6 +631,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   yeahText: { color: palette.teal, fontWeight: "800", fontSize: 12 },
+  disabledButton: { opacity: 0.5 },
   resolveButton: {
     flex: 1,
     padding: 8,
@@ -561,6 +655,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.24,
     shadowRadius: 4,
     elevation: 5,
+  },
+  markerHitbox: {
+    width: 64,
+    height: 64,
+    alignItems: "center",
+    justifyContent: "center",
   },
   markerCore: {
     width: 8,

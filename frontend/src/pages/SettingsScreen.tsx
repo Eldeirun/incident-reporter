@@ -7,8 +7,10 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 
 const light = {
@@ -33,6 +35,7 @@ const dark = {
 
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
+  const { logoutUser } = useAuth();
   const {
     notificationsEnabled,
     darkMode,
@@ -61,6 +64,13 @@ export default function SettingsScreen() {
     if (Number.isFinite(distance) && distance > 0) {
       setNotificationDistance(distance);
     }
+  };
+
+  const handleLogout = () => {
+    Alert.alert("Log out", "Are you sure you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Log out", style: "destructive", onPress: logoutUser },
+    ]);
   };
 
   return (
@@ -178,6 +188,15 @@ export default function SettingsScreen() {
             Leave blank to use the automatic range based on your speed.
           </Text>
         </View>
+
+        <TouchableOpacity
+          style={[styles.logoutButton, { borderColor: colors.line }]}
+          onPress={handleLogout}
+          accessibilityRole="button"
+          accessibilityLabel="Log out"
+        >
+          <Text style={styles.logoutText}>Log out</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -224,4 +243,12 @@ const styles = StyleSheet.create({
   unit: { marginLeft: 8, fontSize: 15 },
   clearText: { marginLeft: 16, fontWeight: "800" },
   helper: { fontSize: 12, lineHeight: 18, marginTop: 10 },
+  logoutButton: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 14,
+    alignItems: "center",
+    marginTop: 28,
+  },
+  logoutText: { color: "#D86658", fontSize: 16, fontWeight: "800" },
 });

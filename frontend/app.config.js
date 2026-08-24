@@ -1,4 +1,5 @@
 const staticConfig = require("./app.json").expo;
+const googleMapsApiKey = process.env.GOOGLE_MAPS_ANDROID_KEY;
 
 module.exports = ({ config }) => ({
   ...config,
@@ -9,8 +10,12 @@ module.exports = ({ config }) => ({
       ...staticConfig.android.config,
       googleMaps: {
         ...staticConfig.android.config.googleMaps,
-        apiKey: process.env.GOOGLE_MAPS_ANDROID_KEY || "",
+        apiKey: googleMapsApiKey || "",
       },
     },
   },
+  plugins: [
+    ...staticConfig.plugins,
+    ["./plugins/withGoogleMapsApiKey", { apiKey: googleMapsApiKey || "" }],
+  ],
 });

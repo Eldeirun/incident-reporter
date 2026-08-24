@@ -12,6 +12,10 @@ import { IncidentsService } from './incidents.service';
 import { IncidentsGateway } from './incidents.gateway';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 
+interface AuthenticatedRequest {
+  user: { id: number };
+}
+
 @Controller('incidents')
 export class IncidentsController {
   constructor(
@@ -21,8 +25,8 @@ export class IncidentsController {
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  findAll() {
-    return this.incidentsService.findAll();
+  findAll(@Request() req: AuthenticatedRequest) {
+    return this.incidentsService.findAll(req.user.id);
   }
 
   @Post()
@@ -45,8 +49,14 @@ export class IncidentsController {
 
   @Post(':id/report')
   @UseGuards(JwtAuthGuard)
-  async incrementReport(@Param('id') id: number) {
-    const incident = await this.incidentsService.incrementReportCount(id);
+  async incrementReport(
+    @Param('id') id: number,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const incident = await this.incidentsService.incrementReportCount(
+      id,
+      req.user.id,
+    );
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     this.incidentsGateway.broadcastReportCount(id, incident.reportCount);
     return incident;
@@ -54,8 +64,8 @@ export class IncidentsController {
 
   @Post(':id/resolve')
   @UseGuards(JwtAuthGuard)
-  async resolve(@Param('id') id: number) {
-    const result = await this.incidentsService.resolve(id);
+  async resolve(@Param('id') id: number, @Request() req: AuthenticatedRequest) {
+    const result = await this.incidentsService.resolve(id, req.user.id);
     if (result.removed) {
       this.incidentsGateway.broadcastRemoveIncident(id);
     } else {
