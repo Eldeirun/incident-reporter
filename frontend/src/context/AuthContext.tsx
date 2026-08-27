@@ -3,12 +3,19 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { stopBackgroundLocation } from "../services/backgroundLocation";
 import { setAuthToken } from "../services/api";
 
+export type UserRole = "user" | "administrator" | "police";
+export interface AuthUser {
+  id?: number;
+  username: string;
+  role: UserRole;
+}
+
 const AUTH_TOKEN_KEY = "incident-reporter.auth-token";
 
 interface AuthContextType {
   token: string | null;
-  user: any | null;
-  loginUser: (token: string, user: any) => void;
+  user: AuthUser | null;
+  loginUser: (token: string, user: AuthUser) => void;
   logoutUser: () => void;
 }
 
@@ -16,9 +23,9 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
 
-  const loginUser = (token: string, user: any) => {
+  const loginUser = (token: string, user: AuthUser) => {
     setToken(token);
     setUser(user);
     setAuthToken(token);

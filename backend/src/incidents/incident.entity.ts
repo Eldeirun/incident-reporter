@@ -26,8 +26,8 @@ export class Incident {
   @Column()
   severity!: string;
 
-  @Column({ nullable: true })
-  description!: string;
+  @Column({ type: 'text', nullable: true })
+  description!: string | null;
 
   @Column({ nullable: true })
   image!: string; //fs, bucket mass storage
@@ -40,6 +40,12 @@ export class Incident {
 
   @Column({ default: 0 })
   resolveCount!: number;
+
+  @Column({ default: 'active' })
+  status!: 'active' | 'resolved';
+
+  @Column({ type: 'timestamp', nullable: true })
+  resolvedAt!: Date | null;
 
   @ManyToOne(() => User)
   @JoinColumn()

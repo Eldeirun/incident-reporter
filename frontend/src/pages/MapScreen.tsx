@@ -15,6 +15,8 @@ import IncidentFormModal from "../components/IncidentFormModal";
 import api from "../services/api";
 import { useIncidents, Incident } from "../context/IncidentsContext";
 import { useSettings } from "../context/SettingsContext";
+import { useAuth } from "../context/AuthContext";
+import { getDistanceKm } from "../services/distance";
 
 const palette = {
   ink: "#173B3A",
@@ -49,6 +51,20 @@ const darkPalette = {
   severe: "#B99ABC",
 };
 
+type SortOption =
+  | "distance-near"
+  | "distance-far"
+  | "severity-low"
+  | "severity-high"
+  | "oldest"
+  | "newest";
+
+const formatReportedAt = (createdAt: string) =>
+  new Date(createdAt).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
 export default function MapScreen() {
   const navigation = useNavigation<any>();
   const mapRef = useRef<MapView | null>(null);
@@ -62,9 +78,11 @@ export default function MapScreen() {
   });
   const [modalVisible, setModalVisible] = useState(false);
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
+  const [sortOption, setSortOption] = useState<SortOption>("newest");
   const { incidents, isLoading, reportIncident, resolveIncident } =
     useIncidents();
   const { darkMode } = useSettings();
+  const { user } = useAuth();
   const theme = darkMode ? darkPalette : palette;
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(
     null,
@@ -188,18 +206,52 @@ export default function MapScreen() {
     }
   };
 
-  const getMarkerColor = (severity: string) => {
-    switch (severity) {
-      case "High":
-        return theme.coral;
-      case "Severe":
-        return theme.severe;
-      case "Medium":
-        return theme.amber;
-      default:
-        return theme.teal;
+  const sortedIncidents = [...incidents].sort((first, second) => {
+    switch (sortOption) {
+      case "distance-near":
+      case "distance-far": {
+        if (!location) return 0;
+        const firstDistance = getDistanceKm(
+          location.latitude,
+          location.longitude,
+          Number(first.lat),
+          Number(first.lon),
+        );
+        const secondDistance = getDistanceKm(
+          location.latitude,
+          location.longitude,
+          Number(second.lat),
+          Number(second.lon),
+        );
+        return sortOption === "distance-near"
+          ? firstDistance - secondDistance
+          : secondDistance - firstDistance;
+      }
+      case "severity-low":
+      case "severity-high": {
+        const severityRank: Record<string, number> = {
+          Low: 1,
+          Medium: 2,
+          High: 3,
+          Severe: 4,
+        };
+        const difference =
+          (severityRank[first.severity] ?? 0) -
+          (severityRank[second.severity] ?? 0);
+        return sortOption === "severity-low" ? difference : -difference;
+      }
+      case "oldest":
+        return (
+          new Date(first.createdAt).getTime() -
+          new Date(second.createdAt).getTime()
+        );
+      case "newest":
+        return (
+          new Date(second.createdAt).getTime() -
+          new Date(first.createdAt).getTime()
+        );
     }
-  };
+  });
 
   return (
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
@@ -261,6 +313,18 @@ export default function MapScreen() {
         >
           <Text style={[styles.settingsText, { color: theme.teal }]}>⚙</Text>
         </TouchableOpacity>
+        {user?.role === "police" && (
+          <TouchableOpacity
+            style={[
+              styles.analyticsButton,
+              { backgroundColor: theme.tealSoft },
+            ]}
+            onPress={() => navigation.navigate("Analytics")}
+            accessibilityLabel="Open incident analytics"
+          >
+            <Text style={[styles.analyticsText, { color: theme.teal }]}>▥</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {isLoading && (
@@ -295,14 +359,15 @@ export default function MapScreen() {
                   latitude: Number(incident.lat),
                   longitude: Number(incident.lon),
                 }}
+                anchor={{ x: 0.5, y: 0.5 }}
                 onPress={() => setSelectedIncident(incident)}
               >
-                <View style={styles.markerHitbox}>
+                <View style={styles.markerHitbox} collapsable={false}>
                   <View
                     style={[
                       styles.marker,
                       {
-                        backgroundColor: getMarkerColor(incident.severity),
+                        backgroundColor: palette.coral,
                         borderColor: theme.surface,
                       },
                     ]}
@@ -372,6 +437,14 @@ export default function MapScreen() {
               >
                 👤 {selectedIncident.reportedBy?.username}
               </Text>
+              <Text
+                style={[
+                  styles.bottomSheetMeta,
+                  darkMode && styles.darkMutedText,
+                ]}
+              >
+                🕒 Reported at {formatReportedAt(selectedIncident.createdAt)}
+              </Text>
               <View style={styles.cardActions}>
                 <TouchableOpacity
                   style={[
@@ -406,7 +479,9 @@ export default function MapScreen() {
                   }
                 >
                   <Text style={styles.resolveText}>
-                    ✅ Resolved ({selectedIncident.resolveCount}/3)
+                    {user?.role === "police"
+                      ? "✅ Resolve immediately"
+                      : `✅ Resolved (${selectedIncident.resolveCount}/3)`}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -424,8 +499,46 @@ export default function MapScreen() {
       {/* List View */}
       {!isLoading && viewMode === "list" && (
         <View style={styles.listContainer}>
+          <View style={styles.sortBar}>
+            <Text style={[styles.sortLabel, { color: theme.muted }]}>
+              Sort by
+            </Text>
+            {(
+              [
+                ["distance-near", "Near"],
+                ["distance-far", "Far"],
+                ["severity-low", "Low"],
+                ["severity-high", "High"],
+                ["oldest", "Oldest"],
+                ["newest", "Newest"],
+              ] as [SortOption, string][]
+            ).map(([value, label]) => (
+              <TouchableOpacity
+                key={value}
+                style={[
+                  styles.sortButton,
+                  { borderColor: theme.line },
+                  sortOption === value && {
+                    backgroundColor: theme.teal,
+                    borderColor: theme.teal,
+                  },
+                ]}
+                onPress={() => setSortOption(value)}
+              >
+                <Text
+                  style={[
+                    styles.sortButtonText,
+                    { color: theme.muted },
+                    sortOption === value && { color: theme.surface },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           <FlatList
-            data={incidents}
+            data={sortedIncidents}
             keyExtractor={(item) => item.id.toString()}
             style={styles.list}
             renderItem={({ item }) => (
@@ -456,6 +569,9 @@ export default function MapScreen() {
                 <Text style={[styles.cardMeta, { color: theme.ink }]}>
                   👤 {item.reportedBy?.username} · 📍{" "}
                   {Number(item.lat).toFixed(3)}, {Number(item.lon).toFixed(3)}
+                </Text>
+                <Text style={[styles.cardMeta, { color: theme.ink }]}>
+                  🕒 Reported at {formatReportedAt(item.createdAt)}
                 </Text>
                 <Text style={[styles.cardCount, { color: theme.ink }]}>
                   🚨 {item.reportCount} report(s)
@@ -495,7 +611,9 @@ export default function MapScreen() {
                     }
                   >
                     <Text style={styles.resolveText}>
-                      ✅ Resolved ({item.resolveCount}/3)
+                      {user?.role === "police"
+                        ? "✅ Resolve immediately"
+                        : `✅ Resolved (${item.resolveCount}/3)`}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -538,16 +656,16 @@ const styles = StyleSheet.create({
   loadingText: { color: palette.muted, fontSize: 15 },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingTop: 48,
     paddingBottom: 12,
+    gap: 8,
     backgroundColor: palette.surface,
     borderBottomWidth: 1,
     borderBottomColor: palette.line,
   },
-  title: { color: palette.ink, fontSize: 21, fontWeight: "800" },
+  title: { color: palette.ink, flex: 1, fontSize: 19, fontWeight: "800" },
   toggle: {
     flexDirection: "row",
     borderRadius: 8,
@@ -556,21 +674,47 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: palette.canvas,
   },
-  toggleBtn: { paddingHorizontal: 12, paddingVertical: 7 },
+  toggleBtn: { paddingHorizontal: 9, paddingVertical: 6 },
   toggleActive: { backgroundColor: palette.teal },
-  toggleText: { color: palette.muted, fontWeight: "700" },
+  toggleText: { color: palette.muted, fontSize: 12, fontWeight: "700" },
   toggleTextActive: { color: palette.surface },
   settingsButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
   },
-  settingsText: { fontSize: 20, fontWeight: "700" },
+  settingsText: { fontSize: 17, fontWeight: "700" },
+  analyticsButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 0,
+  },
+  analyticsText: { fontSize: 17, fontWeight: "700" },
   mapContainer: { flex: 1 },
   map: { flex: 1 },
   listContainer: { flex: 1 },
+  sortBar: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 2,
+  },
+  sortLabel: { fontSize: 12, fontWeight: "800", marginRight: 2 },
+  sortButton: {
+    borderWidth: 1,
+    borderRadius: 7,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+  },
+  sortButtonText: { fontSize: 11, fontWeight: "800" },
   list: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },
   card: {
     backgroundColor: palette.surface,

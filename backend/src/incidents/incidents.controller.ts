@@ -7,13 +7,17 @@ import {
   Body,
   UseGuards,
   Request,
+  Patch,
 } from '@nestjs/common';
 import { IncidentsService } from './incidents.service';
 import { IncidentsGateway } from './incidents.gateway';
 import { JwtAuthGuard } from '../auth/jwt.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { UserRole } from '../users/user-role.enum';
 
 interface AuthenticatedRequest {
-  user: { id: number };
+  user: { id: number; role: UserRole };
 }
 
 @Controller('incidents')
@@ -29,8 +33,30 @@ export class IncidentsController {
     return this.incidentsService.findAll(req.user.id);
   }
 
+  @Get('resolved')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMINISTRATOR)
+  findResolved() {
+    return this.incidentsService.findResolved();
+  }
+
+  @Get('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMINISTRATOR)
+  findForAdministrator() {
+    return this.incidentsService.findForAdministrator();
+  }
+
+  @Patch(':id/description')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMINISTRATOR)
+  removeDescription(@Param('id') id: number) {
+    return this.incidentsService.removeDescription(id);
+  }
+
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER, UserRole.POLICE)
   async create(@Body() body: any, @Request() req: any) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const incident = await this.incidentsService.create(body, req.user);
@@ -40,7 +66,8 @@ export class IncidentsController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER, UserRole.POLICE)
   async remove(@Param('id') id: number) {
     await this.incidentsService.remove(id);
     this.incidentsGateway.broadcastRemoveIncident(id);
@@ -48,7 +75,8 @@ export class IncidentsController {
   }
 
   @Post(':id/report')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER, UserRole.POLICE)
   async incrementReport(
     @Param('id') id: number,
     @Request() req: AuthenticatedRequest,
@@ -63,9 +91,14 @@ export class IncidentsController {
   }
 
   @Post(':id/resolve')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER, UserRole.POLICE)
   async resolve(@Param('id') id: number, @Request() req: AuthenticatedRequest) {
-    const result = await this.incidentsService.resolve(id, req.user.id);
+    const result = await this.incidentsService.resolve(
+      id,
+      req.user.id,
+      req.user.role,
+    );
     if (result.removed) {
       this.incidentsGateway.broadcastRemoveIncident(id);
     } else {

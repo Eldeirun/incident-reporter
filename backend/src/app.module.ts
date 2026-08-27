@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { IncidentsModule } from './incidents/incidents.module';
+import { AiInsightsModule } from './ai-insights/ai-insights.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { IncidentsModule } from './incidents/incidents.module';
     AuthModule,
     UsersModule,
     IncidentsModule,
+    AiInsightsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

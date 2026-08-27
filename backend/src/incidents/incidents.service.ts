@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { Incident } from './incident.entity';
 import { IncidentVote } from './incident-vote.entity';
 import { User } from '../users/user.entity';
+import { UserRole } from '../users/user-role.enum';
 import axios from 'axios';
 
 @Injectable()
@@ -28,6 +29,7 @@ export class IncidentsService {
     })[]
   > {
     const incidents = await this.incidentsRepository.find({
+      where: { status: 'active' },
       relations: { reportedBy: true },
       select: {
         reportedBy: {
@@ -55,6 +57,34 @@ export class IncidentsService {
       userHasReported: reported.has(incident.id),
       userHasResolved: resolved.has(incident.id),
     }));
+  }
+
+  async findResolved(): Promise<Incident[]> {
+    return this.incidentsRepository.find({
+      where: { status: 'resolved' },
+      relations: { reportedBy: true },
+      select: {
+        reportedBy: { id: true, username: true, profile_image: true },
+      },
+      order: { resolvedAt: 'DESC' },
+    });
+  }
+
+  async findForAdministrator(): Promise<Incident[]> {
+    return this.incidentsRepository.find({
+      relations: { reportedBy: true },
+      select: {
+        reportedBy: { id: true, username: true, profile_image: true },
+      },
+      order: { status: 'ASC', createdAt: 'DESC' },
+    });
+  }
+
+  async removeDescription(id: number): Promise<Incident> {
+    const incident = await this.incidentsRepository.findOne({ where: { id } });
+    if (!incident) throw this.notFound;
+    incident.description = null;
+    return this.incidentsRepository.save(incident);
   }
 
   async create(data: Partial<Incident>, user: User): Promise<Incident> {
@@ -116,6 +146,7 @@ export class IncidentsService {
   async resolve(
     id: number,
     userId: number,
+    role: UserRole,
   ): Promise<{
     removed: boolean;
     resolveCount: number;
@@ -127,8 +158,10 @@ export class IncidentsService {
     await this.addVote(id, userId, 'resolve');
     incident.resolveCount += 1;
 
-    if (incident.resolveCount >= 3) {
-      await this.incidentsRepository.remove(incident);
+    if (role === UserRole.POLICE || incident.resolveCount >= 3) {
+      incident.status = 'resolved';
+      incident.resolvedAt = new Date();
+      await this.incidentsRepository.save(incident);
       return {
         removed: true,
         resolveCount: incident.resolveCount,

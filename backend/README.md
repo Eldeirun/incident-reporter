@@ -57,6 +57,17 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+## AI operations insights
+
+The police analytics screen uses `GET /analytics/insights` to calculate live
+incident metrics and generate an operations brief through Groq. Copy
+`.env.example` to `.env`, provide `GROQ_API_KEY`, and optionally set
+`GROQ_MODEL`.
+
+The key is read only by the backend and is never sent to the mobile app.
+Without it, the endpoint returns a clear configuration error and the app shows
+a retryable setup message.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

@@ -1,16 +1,16 @@
 import React, { useState } from "react";
 import {
-  View,
+  Alert,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
+  View,
   Switch,
 } from "react-native";
-import { login } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
+import { adminLogin } from "../services/api";
 
 const lightTheme = {
   canvas: "#FFFFFF",
@@ -34,7 +34,7 @@ const darkTheme = {
   link: "#67C1B5",
 };
 
-export default function LoginScreen({ navigation }: any) {
+export default function AdminLoginScreen({ navigation }: any) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const { loginUser } = useAuth();
@@ -43,10 +43,10 @@ export default function LoginScreen({ navigation }: any) {
 
   const handleLogin = async () => {
     try {
-      const res = await login(username, password);
-      loginUser(res.data.access_token, res.data.user);
+      const response = await adminLogin(username, password);
+      loginUser(response.data.access_token, response.data.user);
     } catch {
-      Alert.alert("Error", "Invalid credentials");
+      Alert.alert("Error", "Administrator credentials are invalid");
     }
   };
 
@@ -64,10 +64,17 @@ export default function LoginScreen({ navigation }: any) {
         />
       </View>
       <Text style={[styles.title, { color: theme.ink }]}>
-        Incident Reporter
+        Administrator access
       </Text>
       <TextInput
-        style={[styles.input, { color: theme.input, borderColor: theme.line }]}
+        style={[
+          styles.input,
+          {
+            color: theme.input,
+            borderColor: theme.line,
+            backgroundColor: theme.canvas,
+          },
+        ]}
         placeholder="Username"
         value={username}
         onChangeText={setUsername}
@@ -75,7 +82,14 @@ export default function LoginScreen({ navigation }: any) {
         placeholderTextColor={theme.placeholder}
       />
       <TextInput
-        style={[styles.input, { color: theme.input, borderColor: theme.line }]}
+        style={[
+          styles.input,
+          {
+            color: theme.input,
+            borderColor: theme.line,
+            backgroundColor: theme.canvas,
+          },
+        ]}
         placeholder="Password"
         value={password}
         onChangeText={setPassword}
@@ -86,16 +100,11 @@ export default function LoginScreen({ navigation }: any) {
         style={[styles.button, { backgroundColor: theme.button }]}
         onPress={handleLogin}
       >
-        <Text style={styles.buttonText}>Login</Text>
+        <Text style={styles.buttonText}>Administrator login</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate("Register")}>
+      <TouchableOpacity onPress={() => navigation.navigate("Login")}>
         <Text style={[styles.link, { color: theme.link }]}>
-          Don&apos;t have an account? Register
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate("AdminLogin")}>
-        <Text style={[styles.link, { color: theme.link }]}>
-          Administrator login
+          Back to regular login
         </Text>
       </TouchableOpacity>
     </View>
@@ -126,11 +135,9 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
-    color: "#111827",
   },
   button: {
     backgroundColor: "#e74c3c",
@@ -140,5 +147,5 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  link: { textAlign: "center", color: "#e74c3c" },
+  link: { textAlign: "center", marginTop: 4 },
 });
