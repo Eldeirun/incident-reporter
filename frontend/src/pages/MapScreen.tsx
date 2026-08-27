@@ -8,6 +8,8 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
+  TextInput,
+  KeyboardAvoidingView,
 } from "react-native";
 import MapView, { Marker, MapPressEvent } from "react-native-maps";
 import { useNavigation } from "@react-navigation/native";
@@ -87,6 +89,9 @@ export default function MapScreen() {
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(
     null,
   );
+  const [policeDescription, setPoliceDescription] = useState("");
+  const [isSavingPoliceDescription, setIsSavingPoliceDescription] =
+    useState(false);
 
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
@@ -203,6 +208,23 @@ export default function MapScreen() {
           : current,
       );
       console.error("Failed to report incident", err);
+    }
+  };
+
+  const handleSavePoliceDescription = async () => {
+    if (!selectedIncident) return;
+
+    setIsSavingPoliceDescription(true);
+    try {
+      await api.patch(`/incidents/${selectedIncident.id}/police-description`, {
+        policeDescription,
+      });
+      Alert.alert("Saved", "The private police description was saved.");
+    } catch (err) {
+      console.error("Failed to save police description", err);
+      Alert.alert("Save failed", "The private description could not be saved.");
+    } finally {
+      setIsSavingPoliceDescription(false);
     }
   };
 
@@ -384,108 +406,160 @@ export default function MapScreen() {
             ))}
           </MapView>
           {selectedIncident && (
-            <View
-              style={[styles.bottomSheet, darkMode && styles.bottomSheetDark]}
+            <KeyboardAvoidingView
+              behavior="padding"
+              style={styles.bottomSheetKeyboard}
             >
-              <View style={styles.bottomSheetHeader}>
-                <Text
-                  style={[styles.bottomSheetType, darkMode && styles.darkText]}
-                >
-                  {selectedIncident.type}
-                </Text>
-                <Text
-                  style={[
-                    styles.bottomSheetSeverity,
-                    darkMode && styles.darkCoralText,
-                  ]}
-                >
-                  {selectedIncident.severity}
-                </Text>
-                <TouchableOpacity onPress={() => setSelectedIncident(null)}>
+              <View
+                style={[styles.bottomSheet, darkMode && styles.bottomSheetDark]}
+              >
+                <View style={styles.bottomSheetHeader}>
                   <Text
                     style={[
-                      styles.bottomSheetClose,
+                      styles.bottomSheetType,
+                      darkMode && styles.darkText,
+                    ]}
+                  >
+                    {selectedIncident.type}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.bottomSheetSeverity,
+                      darkMode && styles.darkCoralText,
+                    ]}
+                  >
+                    {selectedIncident.severity}
+                  </Text>
+                  <TouchableOpacity onPress={() => setSelectedIncident(null)}>
+                    <Text
+                      style={[
+                        styles.bottomSheetClose,
+                        darkMode && styles.darkMutedText,
+                      ]}
+                    >
+                      ✕
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {selectedIncident.address && (
+                  <Text
+                    style={[
+                      styles.bottomSheetAddress,
                       darkMode && styles.darkMutedText,
                     ]}
                   >
-                    ✕
+                    {selectedIncident.address}
                   </Text>
-                </TouchableOpacity>
-              </View>
-              {selectedIncident.address && (
+                )}
+                {selectedIncident.description && (
+                  <Text
+                    style={[
+                      styles.bottomSheetDesc,
+                      darkMode && styles.darkText,
+                    ]}
+                  >
+                    {selectedIncident.description}
+                  </Text>
+                )}
+                {user?.role === "police" && (
+                  <View style={styles.policeDescriptionSection}>
+                    <Text
+                      style={[
+                        styles.policeDescriptionLabel,
+                        darkMode && styles.darkText,
+                      ]}
+                    >
+                      Private police description
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.policeDescriptionInput,
+                        darkMode && styles.policeDescriptionInputDark,
+                      ]}
+                      value={policeDescription}
+                      onChangeText={setPoliceDescription}
+                      placeholder="Add operational context for AI insights"
+                      placeholderTextColor={
+                        darkMode ? "#7F9D98" : palette.softMuted
+                      }
+                      multiline
+                      numberOfLines={2}
+                    />
+                    <TouchableOpacity
+                      style={styles.savePoliceDescriptionButton}
+                      onPress={() => void handleSavePoliceDescription()}
+                      disabled={isSavingPoliceDescription}
+                    >
+                      <Text style={styles.savePoliceDescriptionText}>
+                        {isSavingPoliceDescription
+                          ? "Saving..."
+                          : "Save private description"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
                 <Text
                   style={[
-                    styles.bottomSheetAddress,
+                    styles.bottomSheetMeta,
                     darkMode && styles.darkMutedText,
                   ]}
                 >
-                  {selectedIncident.address}
+                  👤 {selectedIncident.reportedBy?.username}
                 </Text>
-              )}
-              {selectedIncident.description && (
                 <Text
-                  style={[styles.bottomSheetDesc, darkMode && styles.darkText]}
+                  style={[
+                    styles.bottomSheetMeta,
+                    darkMode && styles.darkMutedText,
+                  ]}
                 >
-                  {selectedIncident.description}
+                  🕒 Reported at {formatReportedAt(selectedIncident.createdAt)}
                 </Text>
-              )}
-              <Text
-                style={[
-                  styles.bottomSheetMeta,
-                  darkMode && styles.darkMutedText,
-                ]}
-              >
-                👤 {selectedIncident.reportedBy?.username}
-              </Text>
-              <Text
-                style={[
-                  styles.bottomSheetMeta,
-                  darkMode && styles.darkMutedText,
-                ]}
-              >
-                🕒 Reported at {formatReportedAt(selectedIncident.createdAt)}
-              </Text>
-              <View style={styles.cardActions}>
-                <TouchableOpacity
-                  style={[
-                    styles.yeahButton,
-                    selectedIncident.userHasReported && styles.disabledButton,
-                  ]}
-                  onPress={() => handleReport(selectedIncident.id)}
-                  disabled={selectedIncident.userHasReported}
-                >
-                  <Text style={styles.yeahText}>
-                    {selectedIncident.userHasReported
-                      ? "👍 Said yeah"
-                      : `👍 Yeah (${selectedIncident.reportCount})`}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.resolveButton,
-                    selectedIncident.userHasResolved && styles.disabledButton,
-                  ]}
-                  onPress={() =>
-                    Alert.alert("Mark Resolved", "Is this incident resolved?", [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Resolved",
-                        onPress: async () => {
-                          await resolveIncident(selectedIncident.id);
-                          setSelectedIncident(null);
-                        },
-                      },
-                    ])
-                  }
-                >
-                  <Text style={styles.resolveText}>
-                    {user?.role === "police"
-                      ? "✅ Resolve immediately"
-                      : `✅ Resolved (${selectedIncident.resolveCount}/3)`}
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={[
+                      styles.yeahButton,
+                      selectedIncident.userHasReported && styles.disabledButton,
+                    ]}
+                    onPress={() => handleReport(selectedIncident.id)}
+                    disabled={selectedIncident.userHasReported}
+                  >
+                    <Text style={styles.yeahText}>
+                      {selectedIncident.userHasReported
+                        ? "👍 Said yeah"
+                        : `👍 Yeah (${selectedIncident.reportCount})`}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.resolveButton,
+                      selectedIncident.userHasResolved && styles.disabledButton,
+                    ]}
+                    onPress={() =>
+                      Alert.alert(
+                        "Mark Resolved",
+                        "Is this incident resolved?",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Resolved",
+                            onPress: async () => {
+                              await resolveIncident(selectedIncident.id);
+                              setSelectedIncident(null);
+                            },
+                          },
+                        ],
+                      )
+                    }
+                  >
+                    <Text style={styles.resolveText}>
+                      {user?.role === "police"
+                        ? "✅ Resolve immediately"
+                        : `✅ Resolved (${selectedIncident.resolveCount}/3)`}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            </KeyboardAvoidingView>
           )}
           <TouchableOpacity
             style={styles.reportButton}
@@ -813,10 +887,6 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface,
   },
   bottomSheet: {
-    position: "absolute",
-    bottom: 90,
-    left: 16,
-    right: 16,
     backgroundColor: palette.surface,
     borderColor: palette.line,
     borderRadius: 12,
@@ -827,6 +897,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.16,
     shadowRadius: 12,
     elevation: 8,
+  },
+  bottomSheetKeyboard: {
+    position: "absolute",
+    bottom: 90,
+    left: 16,
+    right: 16,
   },
   bottomSheetDark: {
     backgroundColor: darkPalette.surface,
@@ -858,6 +934,40 @@ const styles = StyleSheet.create({
   },
   bottomSheetDesc: { color: palette.ink, marginBottom: 6, lineHeight: 20 },
   bottomSheetMeta: { color: palette.softMuted, fontSize: 12, marginBottom: 8 },
+  policeDescriptionSection: { marginBottom: 8 },
+  policeDescriptionLabel: {
+    color: palette.ink,
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 6,
+  },
+  policeDescriptionInput: {
+    minHeight: 54,
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderRadius: 8,
+    color: palette.ink,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    textAlignVertical: "top",
+  },
+  policeDescriptionInputDark: {
+    borderColor: darkPalette.line,
+    color: darkPalette.ink,
+  },
+  savePoliceDescriptionButton: {
+    alignSelf: "flex-start",
+    backgroundColor: palette.teal,
+    borderRadius: 7,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  savePoliceDescriptionText: {
+    color: palette.surface,
+    fontSize: 12,
+    fontWeight: "800",
+  },
   darkText: { color: darkPalette.ink },
   darkMutedText: { color: darkPalette.muted },
   darkCoralText: { color: "#F19A8D" },

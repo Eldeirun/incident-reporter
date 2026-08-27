@@ -29,6 +29,9 @@ export class Incident {
   @Column({ type: 'text', nullable: true })
   description!: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  policeDescription!: string | null;
+
   @Column({ nullable: true })
   image!: string; //fs, bucket mass storage
 

@@ -48,4 +48,18 @@ describe('IncidentsService', () => {
     );
     expect(incidentsRepository.save).not.toHaveBeenCalled();
   });
+
+  it('updates and clears a police-only description', async () => {
+    const incident = { id: 7, policeDescription: null };
+    incidentsRepository.findOne.mockResolvedValue(incident);
+    incidentsRepository.save.mockResolvedValue(incident);
+
+    await expect(
+      service.updatePoliceDescription(7, '  Road is blocked by debris  '),
+    ).resolves.toEqual({ message: 'Police description updated' });
+    expect(incident.policeDescription).toBe('Road is blocked by debris');
+
+    await service.updatePoliceDescription(7, '   ');
+    expect(incident.policeDescription).toBeNull();
+  });
 });

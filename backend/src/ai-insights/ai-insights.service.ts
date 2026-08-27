@@ -69,6 +69,7 @@ export class AiInsightsService {
         type: incident.type,
         severity: incident.severity,
         description: incident.description,
+        policeDescription: incident.policeDescription,
         address: incident.address,
         reportCount: incident.reportCount,
         resolveCount: incident.resolveCount,

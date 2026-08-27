@@ -8,7 +8,6 @@ import {
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import { useSettings } from "../context/SettingsContext";
 
@@ -60,10 +59,7 @@ export default function IncidentFormModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.overlay}
-      >
+      <KeyboardAvoidingView behavior="padding" style={styles.overlay}>
         <ScrollView
           contentContainerStyle={styles.sheetContent}
           showsVerticalScrollIndicator={false}

@@ -54,6 +54,19 @@ export class IncidentsController {
     return this.incidentsService.removeDescription(id);
   }
 
+  @Patch(':id/police-description')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.POLICE)
+  updatePoliceDescription(
+    @Param('id') id: number,
+    @Body() body: { policeDescription?: string | null },
+  ) {
+    return this.incidentsService.updatePoliceDescription(
+      id,
+      body.policeDescription,
+    );
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.USER, UserRole.POLICE)

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import {
   ConflictException,
   Injectable,
@@ -12,6 +11,8 @@ import { User } from '../users/user.entity';
 import { UserRole } from '../users/user-role.enum';
 import axios from 'axios';
 
+type PublicIncident = Omit<Incident, 'policeDescription'>;
+
 @Injectable()
 export class IncidentsService {
   notFound = new NotFoundException('Incident not found');
@@ -23,7 +24,7 @@ export class IncidentsService {
   ) {}
 
   async findAll(userId: number): Promise<
-    (Incident & {
+    (PublicIncident & {
       userHasReported: boolean;
       userHasResolved: boolean;
     })[]
@@ -53,14 +54,14 @@ export class IncidentsService {
         .map((vote) => vote.incidentId),
     );
     return incidents.map((incident) => ({
-      ...incident,
+      ...this.toPublicIncident(incident),
       userHasReported: reported.has(incident.id),
       userHasResolved: resolved.has(incident.id),
     }));
   }
 
-  async findResolved(): Promise<Incident[]> {
-    return this.incidentsRepository.find({
+  async findResolved(): Promise<PublicIncident[]> {
+    const incidents = await this.incidentsRepository.find({
       where: { status: 'resolved' },
       relations: { reportedBy: true },
       select: {
@@ -68,29 +69,45 @@ export class IncidentsService {
       },
       order: { resolvedAt: 'DESC' },
     });
+    return incidents.map((incident) => this.toPublicIncident(incident));
   }
 
-  async findForAdministrator(): Promise<Incident[]> {
-    return this.incidentsRepository.find({
+  async findForAdministrator(): Promise<PublicIncident[]> {
+    const incidents = await this.incidentsRepository.find({
       relations: { reportedBy: true },
       select: {
         reportedBy: { id: true, username: true, profile_image: true },
       },
       order: { status: 'ASC', createdAt: 'DESC' },
     });
+    return incidents.map((incident) => this.toPublicIncident(incident));
   }
 
-  async removeDescription(id: number): Promise<Incident> {
+  async removeDescription(id: number): Promise<PublicIncident> {
     const incident = await this.incidentsRepository.findOne({ where: { id } });
     if (!incident) throw this.notFound;
     incident.description = null;
-    return this.incidentsRepository.save(incident);
+    const saved = await this.incidentsRepository.save(incident);
+    return this.toPublicIncident(saved);
+  }
+
+  async updatePoliceDescription(
+    id: number,
+    policeDescription?: string | null,
+  ): Promise<{ message: string }> {
+    const incident = await this.incidentsRepository.findOne({ where: { id } });
+    if (!incident) throw this.notFound;
+
+    incident.policeDescription = policeDescription?.trim() || null;
+    await this.incidentsRepository.save(incident);
+    return { message: 'Police description updated' };
   }
 
   async create(data: Partial<Incident>, user: User): Promise<Incident> {
     const address = await this.getAddress(Number(data.lat), Number(data.lon));
     const incident = this.incidentsRepository.create({
       ...data,
+      policeDescription: null,
       reportedBy: user,
       address: address ?? undefined,
     });
@@ -106,13 +123,13 @@ export class IncidentsService {
   async incrementReportCount(
     id: number,
     userId: number,
-  ): Promise<Incident & { userHasReported: true }> {
+  ): Promise<PublicIncident & { userHasReported: true }> {
     const incident = await this.incidentsRepository.findOne({ where: { id } });
     if (!incident) throw this.notFound;
     await this.addVote(id, userId, 'report');
     incident.reportCount += 1;
     const saved = await this.incidentsRepository.save(incident);
-    return { ...saved, userHasReported: true };
+    return { ...this.toPublicIncident(saved), userHasReported: true };
   }
 
   private async getAddress(lat: number, lon: number): Promise<string | null> {
@@ -129,8 +146,8 @@ export class IncidentsService {
     }
   }
 
-  async findOne(id: number): Promise<Incident | null> {
-    return this.incidentsRepository.findOne({
+  async findOne(id: number): Promise<PublicIncident | null> {
+    const incident = await this.incidentsRepository.findOne({
       where: { id },
       relations: { reportedBy: true },
       select: {
@@ -141,6 +158,13 @@ export class IncidentsService {
         },
       },
     });
+    return incident ? this.toPublicIncident(incident) : null;
+  }
+
+  private toPublicIncident(incident: Incident): PublicIncident {
+    const publicIncident = { ...incident } as Partial<Incident>;
+    delete publicIncident.policeDescription;
+    return publicIncident as PublicIncident;
   }
 
   async resolve(
