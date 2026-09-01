@@ -1,5 +1,5 @@
 import { io, Socket } from "socket.io-client";
-const SOCKET_URL = "http://10.145.218.124:3000";
+const SOCKET_URL = "http://172.17.154.124:3000";
 
 let socket: Socket;
 

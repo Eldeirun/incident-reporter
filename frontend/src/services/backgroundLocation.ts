@@ -7,7 +7,7 @@ import axios from "axios";
 import { getDistanceKm } from "./distance";
 
 export const BACKGROUND_LOCATION_TASK = "incident-reporter-background-location";
-const API_URL = "http://10.145.218.124:3000";
+const API_URL = "http://172.17.154.124:3000";
 const AUTH_TOKEN_KEY = "incident-reporter.auth-token";
 const SETTINGS_KEY = "incident-reporter.settings";
 const NOTIFIED_INCIDENTS_KEY = "incident-reporter.notified-incidents";

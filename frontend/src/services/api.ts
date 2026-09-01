@@ -1,6 +1,6 @@
 import { create } from "axios";
 
-const API_URL = "http://10.145.218.124:3000";
+const API_URL = "http://172.17.154.124:3000";
 
 const api = create({
   baseURL: API_URL,
