@@ -439,11 +439,3 @@ This project is licensed under the UNLICENSED license. See the LICENSE file for 
 ## Support
 
 For issues, questions, or suggestions, please open an issue on GitHub or contact the development team.
-
----
-
-<div align="center">
-
-Made with ❤️ by the Incident Reporter Team
-
-</div>
